@@ -1,0 +1,21 @@
+//跨浏览器的事件处理程序
+var EventUtil={
+    addHandler:function(element,type,handler){
+        if(element.addEventListener){  //检测DOM2级方法
+            element.addEventListener(type,handler,false);
+        } else if(element.attachEvent){  //检测IE方法
+            element.attachEvent("on"+type,handler);
+        } else{
+            element["on"+type]=handler;   //使用DOM0方法
+        }
+    },
+    removeHandler:function(element,type,handler){
+        if(element.removeEventListener){  //检测DOM2级方法
+            element.removeEventListener(type,handler,false);
+        } else if(element.detachEvent){  //检测IE方法
+            element.detachEvent("on"+type,handler);
+        } else{
+            element["on"+type]=null;   //使用DOM0方法
+        }
+    }
+};
