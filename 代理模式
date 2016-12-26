@@ -1,0 +1,150 @@
+明星都有经纪人作为代理。如果请明星办一场商演，只能联系其经纪人，经纪人会把商演的细节和报酬谈好，再把合同交给明星签。
+
+一、定义
+代理模式：为一个对象提供一个代用品或占位符，以便控制对它的访问。 
+代理分为：保护代理和虚拟代理 
+保护代理：用于控制不同权限的对象对目标对象的访问，在JavaScript中很难判断谁访问了某个对象，所以保护代理很难实现。
+
+二、图片预加载（最常见的虚拟代理应用场景）
+图片预加载是一种常用技术，如果直接给某个img标签节点设置src属性，由于图片过大或者网络不佳，图片的位置往往有段时间会有空白。常见的做法事先用一张loading图片占位，然后异步加载图片，待图片加载完成，把其填充到img节点里。 
+实现原理： 
+创建一个Image对象：var a = new Image(); 
+定义Image对象的src: a.src = “xxx.gif”; 
+这样做就相当于给浏览器缓存了一张图片。
+
+可通过Image对象的complete属性来检测图像是否加载完成。每个Image对象都有一个complete属性，当图像处于装载过程中时，该属性值false,当发生了onload、onerror、onabort中任何一个事件后，则表示图像装载过程结束，此时complete属性为true。
+
+（1）非代理实现
+
+var myImage = (function() {
+    var imgNode = document.createElement("img");
+    document.body.appendChild(imgNode);
+    var img = new Image();
+
+    img.onload = function() {
+        imgNode.src = img.src;
+    };
+
+    return {
+        setSrc: function(src) {
+            imgNode.src = "./images/loading.gif";
+            img.src = src;
+        }
+    }
+})();
+
+myImage.setSrc("./images/originImg.png");
+
+（2）代理实现
+// 创建图片DOM
+var myImage = (function() {
+    var imgNode = document.createElement("img");
+    document.body.appendChild(imgNode);
+
+    return {
+        setSrc: function(src) {
+            imgNode.src = src;
+        }
+    };
+})();
+
+// 代理
+var proxyImage = (function() {
+    var img = new Image();
+
+    img.onload = function() {
+        myImage.setSrc(this.src);   // this指向img！img加载完成后，将img.src传递给myImage
+    };
+
+    return {
+        setSrc: function(src) {
+            myImage.setSrc("./images/loading.gif");     // loading
+            img.src = src;
+        }
+    };
+})();
+
+proxyImage.setSrc("./images/originImg.png");
+使用代理模式的好处：使每个函数功能单一，实现对象设计的“单一职责原则”！
+
+三、文件同步
+假设我们在做一个文件同步功能，当选中checkbox时候，它对应的文件就会被同步到另外一台服务器。
+<body>
+        <input type="checkbox" id="1" />文件1
+        <input type="checkbox" id="2" />文件2
+        <input type="checkbox" id="3" />文件3
+        <input type="checkbox" id="4" />文件4
+        <input type="checkbox" id="5" />文件5
+        <input type="checkbox" id="6" />文件6
+    </body>
+    没选中一个checkbox就同步一次，显然不太合理。因为在web开发中，最大的开销就是网络请求。 
+解决方案方案：通过一个代理函数来收集一段时间之内的请求，然后一次性发给服务器。
+var synchronousFile = function(id) {
+    console.log("开始同步文件，id为：" + id);
+};
+
+var proxySynchonousFile = (function() {
+    var cache = [],     // 保存本次需要同步文件的id
+        timer;          // 定时器
+
+    return function(id) {
+        cache.push(id);
+        if(timer) { 
+            // 不要覆盖已经启动的定时
+            return;
+        }
+
+        timer = setTimeout(function(){
+            synchronousFile(cache.join(","));
+            clearTimeout(timer);
+            timer = null;
+            cache.length = 0;   // 清空缓存
+        }, 2000);
+    }
+})();
+
+var checkboxs = document.getElementsByTagName("input");
+
+for(var i = 0, c; c = checkboxs[i]; i++) {
+    c.onclick = function() {
+        if(this.checked === true) {
+            proxySynchonousFile(this.id);
+        }
+    }
+}
+四、缓存代理–计算乘积（序列一模一样）
+var mult = function() {
+    var result = 1;
+    for(var i = 0, l = arguments.length; i < l; i++) {
+        result= result * arguments[i];
+    }
+    return result;
+};
+
+var proxyMult = (function() {
+    var cache = {};     // {"1,2,3": 6}
+    return function() {
+        var args = Array.prototype.join.call(arguments, ",");
+        if(args in cache) {
+            return cache[args];
+        }
+        return cache[args] = mult.apply(this, arguments);
+    }
+})();
+
+console.log(proxyMult(1, 2, 3));
+
+// 改造：
+
+var proxyFactory = function(fn) {
+    var cache = {};
+    return function() {
+        var args = Array.prototype.join.call(arguments, ",");
+        if(args in cache) {
+            return cache[args];
+        }
+        return cache[args] = fn.apply(this, arguments);
+    }   
+};
+
+console.log(proxyFactory(mult)(1, 2, 3));
