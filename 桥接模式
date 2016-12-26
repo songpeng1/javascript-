@@ -1,0 +1,112 @@
+桥接模式
+
+前言
+桥接模式是软件设计模式中最复杂的设计模式之一.需要将事物的对象和具体的行为,具体特征分离开来,时期可以各自独立的变化.桥接模式则在中间起着类似总调控的作用.
+
+事物对象是一个较为抽象的概念,如”圆形”,”三角形”归于抽象的”形状”之下,”画圆形”和”画三角形”则归于具体行为的”画图”之下,然后”形状”这个抽象可以调用”画图”这个行为
+
+
+正文
+桥接模式特别有用.案例:
+var singleton=function(fn){
+var result;
+return function(){
+return result||(result=fn.apply(this,arguments));
+}
+}
+ 
+var createMask=singleton(function(){
+return document.body.appendChild(document.createElement('div'));
+})
+singleton是抽象部分,而createMask是实现部分.他们完全可以肚子变化互不影响.如果需要再写一个但里的createScript就毫不费力了.
+
+ 
+
+JS代码
+var createScript=singleton(function(){
+	return document.body.appendChild(document.createElement('script'));
+})
+另外一个常见的例子就是forEach函数的实现,用来迭代一个数组.
+
+ 
+
+JS代码
+forEach=function(arr,fn){
+	for(var i=0,l=arr.length;i<l;i++){
+		var c=arr[i];
+		if(fn.call(c,i,c)==false){
+			return false;
+			}
+		}
+	}
+  可以看到forEach函数并不关心fn里面的具体实现,fn里面的逻辑也不会被forEach函数的改写影响.
+
+JS代码:
+forEach([1,2,3],function(i,n){
+	alert(n*2)
+	})
+forEach([1,2,3],function(i,n){
+	alert(n*3)
+	})
+  JS中的桥接模式
+简单的桥接模式,无非就是在设计API的时候可以弱化对象间(对象与类)的耦合程度.
+function sendInfo(element){
+	var id=element.id;
+	ajax("GET","info.json?id="+id,function(result){
+		//代码
+		});
+	//代码
+	}
+  然后我们在很多地方或者事件中使用了sendInfo的方法,但是很明显该方法内部的ajax请求和整体的实现”性质”不太一样,那么将ajax请求方法独立处理,创建一个桥接与ajax和回调函数以及其他代码运行的函数,就可以使整体的结构更加清晰合理,降低原有函数内部方法之间调用的耦合度.
+
+ 
+
+那么需要对它的结构使用最简单的桥接模式的处理下:
+function sendInfo(element){
+	var id=element.id;
+	callback=function(result){
+		//code
+	}
+	sendInfoBridge(id,callback);
+	//code
+}
+function sendInfoBridge(id,callback){
+	ajax("GET","info.json?id="+id,function(result){
+		callback(result);
+	});
+//code
+}
+那么简单的处理后,从结构上来说变得更为清晰,使得sendInfo中的部分方法脱离出来形成了独立的方法.此处桥接可以看魏ajax请求与id,callback等的桥接.
+
+ 
+
+ 
+
+桥接模式连接多个类
+var Class1 = function( a, b, c ){
+    	this.a = a;
+    	this.bc = b*c;
+}
+var Class2 = function( d ){
+    	this.d = d;
+}
+ 
+function BridgeClass(a, b, c, d){
+    	this.class1 = new Class1(a, b, c);
+    	this.class2 = new Class2(d);
+}
+但是在此的作用并没有减低耦合度什么的,凡是是新创建的构造函数依赖于之前的构造函数Class1和Class2,这类似于门面模式(还没说,不着急).
+
+其实还是因为这里的实力太过于简单,简单来说,Class1和Class2就是两个”性质”不一样的类,而BridgeClass是将两个类联合在一起.也不用认为是依赖于之前的构造函数Class1和Class2,因为本身就是实现者,视为两代码从主程序中独立出来并非依赖.
+
+该方式与适配器模式和门面模式类似,不过还是有点不同之处的:
+
+与适配器模式的不同之处:没有要求客户提供适配的数据.可以视为一种包装器,对接口进行设配以保证不同环境中兼容.
+
+与门面模式的不同之处:门面模式仅仅是提供一个简化的接口供客户使用,提供一个高级接口使得子系统更容易使用.而桥接模式中Class1和Class2是能独立于BridgeClass发生改变的,门面模式去不同.
+
+ 
+
+
+小结
+很多时候,我们会发现可能一些代码构建的不太合理,过于复杂,命名有更简单的方式来处理逻辑.但是也许我们没有看到这样的处理方式对代码整体的影响.
