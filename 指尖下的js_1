@@ -1,0 +1,132 @@
+水果公司的那些small and cute的设备给我们提供了前所未有的用户体验。当用户在iphone和ipad上运指如飞
+的时候，那些使用objective-c写出优秀应用的开发人员们心里一定充满了成就感，因为正是他们（而不是水果
+）让iOS的世界变的丰富多彩。然而对于我们这些以web为自己事业核心的程序员来说，这种让人欲罢不能的多
+触式体验似乎跟我们关系不大，因为浏览器那一小块地方就是我们和用户的全部交集了。而许多网站为了让iOS
+的用户能够在多触式体验下使用自己的服务，都专门花钱开发objective-c的本地程序作为自己web service的客
+户端。 
+    其实，对于一个web程序员或者一个网站来说，如果你的需求仅仅是让iPhone/iPad用户能够正常使用你的
+服务，那现有的html4页面完全能够满足（也许需要一点点重构，但是很容易）；如果再往上一点，你需要让你
+的web客户端看起来像是用objective-c实现的一样，也并非不可能，只需要将我们熟悉的javascript搬到iOS设
+备上来就行。 
+    本文从一个多触式网页开发初学者的角度，首先简单介绍一下iOS上的浏览器（这里主要指Safari）所支持的
+多触式事件模型，然后将触控（Touch）这种简单的动作升级为手势（Gestrue），最后将javascript + html + 
+css构建的应用脱离浏览器，放到iOS设备的屏幕上成为一个本地link并和植物大战僵尸放到一起。 
+    iOS上的Safari也支持click 和mouseover等传统的交互事件，只是不推荐在iOS的浏览器应用上使用click和
+mouseover，因为这两个事件是为了支持鼠标点击而设计出来的。Click事件在iOS上会有半秒左右的延迟，原
+因是iOS要highlight接收到click的element。而mouseover/out等事件则会被手指的点击触发。所以，在iOS上
+，应当抛弃传统的交互事件模型而接受一个新的事件模型。Touch事件和更高级的Gesture事件，能让你的网页
+交互起来像native应用一样。 
+    处理Touch事件能让你跟踪用户的每一根手指的位置。你可以绑定以下四种Touch事件：
+
+touchstart:  // 手指放到屏幕上的时候触发 
+touchmove:  // 手指在屏幕上移动的时候触发 
+touchend:  // 手指从屏幕上拿起的时候触发 
+touchcancel:  // 系统取消touch事件的时候触发。至于系统什么时候会取消，不详。。
+Gesture事件则是对touch事件的更高级的封装，主要处理手指slide、rotate、scale等动作，将在下一篇文章
+详述。 
+    在开始描述touch事件之前，需要先描述一下多触式系统中特有的touch对象（android和iOS乃至nokia最新
+的meego系统都模拟了类似的对象，这里只针对iOS，因为我只有iPad可用于测试。。）。这个对象封装一次
+屏幕触摸，一般来自于手指。它在touch事件触发的时候产生，可以通过touch event handler的event对象取到
+（一般是通过event.changedTouches属性）。这个对象包括一些重要的属性： 
+
+client / clientY：// 触摸点相对于浏览器窗口viewport的位置 
+pageX / pageY：// 触摸点相对于页面的位置 
+screenX /screenY：// 触摸点相对于屏幕的位置 
+identifier： // touch对象的unique ID 
+CSS代码
+
+.spirit {              /* 方块的class名称*/
+         position: absolute;
+         width: 50px;
+         height: 50px;
+         background-color: red;
+}
+然后，在body下定义一个接收事件的容器，这里body的height必须是100%才能占满整个viewport： 
+
+Html
+
+<body style=”height: 100%;margin:0;padding:0”>
+ 
+<div id=”canvas”  style=”position: relative;width:100%;height: 100%;”></div>
+ 
+</body>
+定义touchstart的事件处理函数，并绑定事件：
+
+Javascript代码
+
+// define global variable
+ 
+var canvas = document.getElementById(“canvas”),
+       spirit, startX, startY;
+    // touch start listener
+ 
+function touchStart(event) {
+         event.preventDefault();
+         if (spirit ||! event.touches.length) return;
+         var touch = event.touches[0];
+         startX = touch.pageX;
+         startY = touch.pageY;
+         spirit = document.createElement(“div”);
+         spirit.className = “spirit”;
+         spirit.style.left = startX;
+         spirit.style.top = startY;
+         canvas.appendChild(spirit);
+}
+ 
+// add touch start listener
+canvas.addEventListener(“touchstart”, touchStart, false);
+首先，我们将方块spirit作为一个全局对象，因为我们现在要测试单根手指所以屏幕上最好只有一个物体在移动
+
+（等会有多触实例）。在touchStart这个事件处理函数中，我们也首先判断了是否已经产生了spirit，也就是是
+否已经有一个手指放到屏幕上，如果是，直接返回。 
+    和传统的event listener一样，多触式系统也会产生一个event对象，只不过这个对象要多出一些属性，比如
+这里的event.touches，这个数组对象获得屏幕上所有的touch。注意这里的event.preventDefault()，在传统的
+事件处理函数中，这个方法阻止事件的默认动作，触摸事件的默认动作是滚屏，我们不想屏幕动来动去的，所
+以先调用一下这个函数。我们取第一个touch，将其pageX/Y作为spirit创建时的初始位置。接下来，我们创建
+一个div，并且设置className，left，top三个属性。最后，我们把spirit对象appendChild到容器中。这样，
+当第一根手指放下的时候，一个红色的，50px见方的方块就放到屏幕上了。 
+    然后，我们要开始处理手指在屏幕上移动的事件： 
+
+Javascript代码
+
+function touchMove(event) {
+         event.preventDefault();
+         if (!spirit || !event.touches.length) return;
+         var touch = event.touches[0],
+              x = touch.pageX – startX,
+              y = touch.pageY – startY;
+         spirit.style.webkitTransform = 'translate(' + x + 'px, ' + y + 'px)';     
+}
+ 
+Canvas.addEventListener(“touchmove”, touchMove, false);
+在touch move listener中，我们使用webkit特有的css属性：webkitTransform来移动方块，这个属性具体怎么用请google之。建议构造面向iOS设备的网页的时候尽量使用webkit自己的特性，不但炫，更可以直接利用硬件来提高性能。 
+
+    最后，我们处理touchend事件。手指提起的时候方块从屏幕上移除。
+
+function touchEnd(event) {
+         If (!spirit) return;
+         canvas.removeChild(spirit);
+         spirit = null;
+}
+ 
+canvas.addEventListener(“touchend”, touchEnd, false);
+在你的ipad或者iphone上测试一下以上代码。如果不出意外的话，一个完整的多触式web程序就诞生了。。 
+这种事件处理模式虽然能够满足我们开发多触式网页应用的需求，但是start – move – end的流程有点繁琐，
+能不能封装一些常用的动作让我们用一个event handler就能解决问题呢。没错，Gesture事件就是为了这个目
+的设计出来的，它封装了手指的scale, slide, rotate等常用的动作。不过，下一章我们再来讨论这个问题。。 
+附件是一个更加复杂一些的例子，每根手指放下的时候都会产生一个不同颜色的方块，手指动的时候方块跟着
+动，手指提起的时候方块消失，请下载查看试用。 
+通过附件所包含的实例，我们可以看出一些较为隐蔽的特性。首先，这里我们没有再使用event.touches取所有
+touch的对象，而是使用event.changedTouches这个数组，用来取得所有跟本次事件相关的touch。但是，这
+里我发现一个奇怪的特性，不知道是我的ipad有问题还是本来就是这样，就是在有多根手指放在屏幕上的时候
+，如果提起一根手指，touchend事件的changedTouches中会包含所有手指的touch对象，然后，其他几根留
+在屏幕上的手指会重新触发touchstart，并刷新所有的touch对象（identifier都不一样了）。如果这是一个所有
+设备都有的特性，那么将给编程者带来一些不便，不知道水果为啥要这么处理。 
+对touch event的介绍我们点到为止，这里给大家推荐两篇文档： 
+1. Safari dom additions reference 
+2. Safari web content guide
+对于有志于开发多触式网页应用的程序员来说，apple的developer站点是一个应该经常光顾的地方。
+
+附件：ios-multi.rar
+
+来源：http://www.cnblogs.com/pifoo/archive/2011/05/23/webkit-touch-event-1.html
